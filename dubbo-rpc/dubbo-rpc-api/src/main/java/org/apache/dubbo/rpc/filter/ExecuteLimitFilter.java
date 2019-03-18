@@ -34,7 +34,7 @@ import org.apache.dubbo.rpc.RpcStatus;
  */
 @Activate(group = Constants.PROVIDER, value = Constants.EXECUTES_KEY)
 public class ExecuteLimitFilter implements Filter {
-
+    //服务端接口限制限流的具体执行逻辑就是在ExecuteLimitFilter中，因为服务端不需要考虑重试等待逻辑，一旦当前执行的线程数量大于指定数量，就直接返回失败了，所以实现逻辑相对于ActiveLimitFilter倒是简便了不少。
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         URL url = invoker.getUrl();

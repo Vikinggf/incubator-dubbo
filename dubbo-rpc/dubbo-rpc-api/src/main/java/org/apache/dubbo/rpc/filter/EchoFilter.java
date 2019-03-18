@@ -30,7 +30,7 @@ import org.apache.dubbo.rpc.RpcResult;
  */
 @Activate(group = Constants.PROVIDER, order = -110000)
 public class EchoFilter implements Filter {
-
+    //回响测试主要用来检测服务是否正常（网络状态），单纯的检测网络情况的话其实不需要执行真正的业务逻辑的，所以通过Filter验证一下即可.
     @Override
     public Result invoke(Invoker<?> invoker, Invocation inv) throws RpcException {
         if (inv.getMethodName().equals(Constants.$ECHO) && inv.getArguments() != null && inv.getArguments().length == 1) {

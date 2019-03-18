@@ -40,24 +40,28 @@ import org.apache.dubbo.rpc.RpcStatus;
  */
 @Activate(group = Constants.CONSUMER, value = Constants.ACTIVES_KEY)
 public class ActiveLimitFilter implements Filter {
-
+    // ActiveLimitFilte主要用于限制同一个客户端对于一个服务端方法的并发调用量。(客户端限流)
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         URL url = invoker.getUrl();
         String methodName = invocation.getMethodName();
         int max = invoker.getUrl().getMethodParameter(methodName, Constants.ACTIVES_KEY, 0);
+        //主要记录每台机器针对某个方法的并发数量
         RpcStatus count = RpcStatus.getStatus(invoker.getUrl(), invocation.getMethodName());
         if (!count.beginCount(url, methodName, max)) {
             long timeout = invoker.getUrl().getMethodParameter(invocation.getMethodName(), Constants.TIMEOUT_KEY, 0);
             long start = System.currentTimeMillis();
             long remain = timeout;
             synchronized (count) {
+                //这个while循环是必要的，因为在一次wait结束后，可能线程调用已经结束了，腾出来consumer的空间
                 while (!count.beginCount(url, methodName, max)) {
                     try {
                         count.wait(remain);
                     } catch (InterruptedException e) {
                         // ignore
                     }
+                    //如果wait方法被中断的话，remain这时候有可能大于0
+                    //如果其中一个线程运行结束自后调用notify方法的话，也有可能remain大于0
                     long elapsed = System.currentTimeMillis() - start;
                     remain = timeout - elapsed;
                     if (remain <= 0) {
@@ -81,6 +85,7 @@ public class ActiveLimitFilter implements Filter {
         } finally {
             count.endCount(url, methodName, System.currentTimeMillis() - begin, isSuccess);
             if (max > 0) {
+                //这里很关键，因为一个调用完成后要通知正在等待执行的队列
                 synchronized (count) {
                     count.notifyAll();
                 }

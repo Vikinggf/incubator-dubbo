@@ -46,11 +46,14 @@ public class ProtocolFilterWrapper implements Protocol {
 
     private static <T> Invoker<T> buildInvokerChain(final Invoker<T> invoker, String key, String group) {
         Invoker<T> last = invoker;
+        //获得所有激活的Filter（已经排好序的）
         List<Filter> filters = ExtensionLoader.getExtensionLoader(Filter.class).getActivateExtension(invoker.getUrl(), key, group);
         if (!filters.isEmpty()) {
             for (int i = filters.size() - 1; i >= 0; i--) {
                 final Filter filter = filters.get(i);
+                //复制引用，构建filter调用链
                 final Invoker<T> next = last;
+                //这里只是构造一个最简化的Invoker作为调用链的载体Invoker
                 last = new Invoker<T>() {
 
                     @Override
@@ -71,11 +74,13 @@ public class ProtocolFilterWrapper implements Protocol {
                     @Override
                     public Result invoke(Invocation invocation) throws RpcException {
                         Result result = filter.invoke(next, invocation);
+                        // 判断是否为异步调用
                         if (result instanceof AsyncRpcResult) {
                             AsyncRpcResult asyncResult = (AsyncRpcResult) result;
                             asyncResult.thenApplyWithContext(r -> filter.onResponse(r, invoker, invocation));
                             return asyncResult;
                         } else {
+                            // 同步调用
                             return filter.onResponse(result, invoker, invocation);
                         }
                     }
@@ -110,6 +115,7 @@ public class ProtocolFilterWrapper implements Protocol {
 
     @Override
     public <T> Invoker<T> refer(Class<T> type, URL url) throws RpcException {
+        //向注册中心引用服务的时候并不会进行filter调用链
         if (Constants.REGISTRY_PROTOCOL.equals(url.getProtocol())) {
             return protocol.refer(type, url);
         }

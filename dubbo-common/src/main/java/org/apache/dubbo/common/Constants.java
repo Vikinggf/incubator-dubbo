@@ -29,9 +29,9 @@ public class Constants {
 
     public static final String PROVIDER = "provider";
 
-    public static final String CONSUMER = "consumer";
-
     public static final String REGISTER = "register";
+
+    public static final String CONSUMER = "consumer";
 
     public static final String UNREGISTER = "unregister";
 

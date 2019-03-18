@@ -37,11 +37,13 @@ import java.util.Map;
  */
 @Activate(group = Constants.PROVIDER, order = -10000)
 public class ContextFilter implements Filter {
+    //ContextFilter和ConsumerContextFilter是结合使用的
 
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         Map<String, String> attachments = invocation.getAttachments();
         if (attachments != null) {
+            //隐式参数重剔除一些核心消息
             attachments = new HashMap<>(attachments);
             attachments.remove(Constants.PATH_KEY);
             attachments.remove(Constants.INTERFACE_KEY);
@@ -55,6 +57,7 @@ public class ContextFilter implements Filter {
             attachments.remove(Constants.TAG_KEY);
             attachments.remove(Constants.FORCE_USE_TAG);
         }
+        //这里又重新将invocation和attachments信息设置到RpcContext，这里设置以后provider的代码就可以获取到consumer端传递的一些隐式参数了
         RpcContext.getContext()
                 .setInvoker(invoker)
                 .setInvocation(invocation)

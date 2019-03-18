@@ -187,6 +187,7 @@ public class ExtensionLoader<T> {
      * @return extension list which are activated.
      * @see #getActivateExtension(org.apache.dubbo.common.URL, String[], String)
      */
+    //将key在url中对应的配置值切换成字符串信息数组
     public List<T> getActivateExtension(URL url, String key, String group) {
         String value = url.getParameter(key);
         return getActivateExtension(url, StringUtils.isEmpty(value) ? null : Constants.COMMA_SPLIT_PATTERN.split(value), group);
@@ -203,10 +204,14 @@ public class ExtensionLoader<T> {
      */
     public List<T> getActivateExtension(URL url, String[] values, String group) {
         List<T> exts = new ArrayList<>();
+        //所有用户自己配置的filter信息（有些Filter是默认激活的，有些是配置激活的，这里这里的names就指的配置激活的filter信息）
         List<String> names = values == null ? new ArrayList<>(0) : Arrays.asList(values);
+        //如果这些名称里不包括去除default的标志(-default)，换言之就是加载Dubbo提供的默认Filter
         if (!names.contains(Constants.REMOVE_VALUE_PREFIX + Constants.DEFAULT_KEY)) {
+            //加载extension信息
             getExtensionClasses();
             for (Map.Entry<String, Object> entry : cachedActivates.entrySet()) {
+                //name指的是SPI读取的配置文件的key
                 String name = entry.getKey();
                 Object activate = entry.getValue();
 
@@ -221,8 +226,13 @@ public class ExtensionLoader<T> {
                 } else {
                     continue;
                 }
+                //group主要是区分实在provider端生效还是consumer端生效
                 if (isMatchGroup(group, activateGroup)) {
                     T ext = getExtension(name);
+                    //这里以Filter为例：三个判断条件的含义依次是：
+                    //1.用户配置的filter列表中不包含当前ext
+                    //2.用户配置的filter列表中不包含当前ext的加-的key
+                    //3.如果用户的配置信息（url中体现）中有可以激活的配置key并且数据不为0,false,null，N/A，也就是说有正常的使用
                     if (!names.contains(name)
                             && !names.contains(Constants.REMOVE_VALUE_PREFIX + name)
                             && isActive(activateValue, url)) {
@@ -230,19 +240,24 @@ public class ExtensionLoader<T> {
                     }
                 }
             }
+            //根据Activate注解上的order排序
             exts.sort(ActivateComparator.COMPARATOR);
         }
+        //进行到此步骤的时候Dubbo提供的原生的Filter已经被添加完毕了，下面处理用户自己扩展的Filter
         List<T> usrs = new ArrayList<>();
         for (int i = 0; i < names.size(); i++) {
             String name = names.get(i);
+            //如果单个name不是以-开头并且所有的key里面并不包含-'name'（也就是说如果配置成了"dubbo,-dubbo"这种的可以，这个if是进不去的）
             if (!name.startsWith(Constants.REMOVE_VALUE_PREFIX)
                     && !names.contains(Constants.REMOVE_VALUE_PREFIX + name)) {
+                //可以通过default关键字替换Dubbo原生的Filter链，主要用来控制调用链顺序
                 if (Constants.DEFAULT_KEY.equals(name)) {
                     if (!usrs.isEmpty()) {
                         exts.addAll(0, usrs);
                         usrs.clear();
                     }
                 } else {
+                    //加入用户自己定义的扩展Filter
                     T ext = getExtension(name);
                     usrs.add(ext);
                 }

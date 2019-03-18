@@ -35,6 +35,11 @@ import java.lang.reflect.Method;
 
 /**
  * EventFilter
+ *
+ * Future主要是处理事件信息，主要有以下几个事件：
+ * oninvoke 在方法调用前触发（如果调用出现异常则会直接触发onthrow方法）
+ * onreturn 在方法返回会触发（如果调用出现异常则会直接触发onthrow方法）
+ * onthrow 调用出现异常时候触发
  */
 @Activate(group = Constants.CONSUMER)
 public class FutureFilter implements Filter {
@@ -43,9 +48,11 @@ public class FutureFilter implements Filter {
 
     @Override
     public Result invoke(final Invoker<?> invoker, final Invocation invocation) throws RpcException {
+        // 这里主要处理回调逻辑，主要区分三个时间：oninvoke：调用前触发，onreturn：调用后触发 onthrow：出现异常情况时候触发
         fireInvokeCallback(invoker, invocation);
         // need to configure if there's return value before the invocation in order to help invoker to judge if it's
         // necessary to return future.
+        //需要在调用前配置好是否有返回值，已供invoker判断是否需要返回future.
         return invoker.invoke(invocation);
     }
 
@@ -95,9 +102,10 @@ public class FutureFilter implements Filter {
             throw new IllegalStateException("service:" + invoker.getUrl().getServiceKey() + " has a oninvoke callback config , but no such " + (onInvokeMethod == null ? "method" : "instance") + " found. url:" + invoker.getUrl());
         }
         if (!onInvokeMethod.isAccessible()) {
+            //由于JDK的安全检查耗时较多.所以通过setAccessible(true)的方式关闭安全检查就可以达到提升反射速度的目的
             onInvokeMethod.setAccessible(true);
         }
-
+        // 可以看出oninvoke的方法参数要与调用的方法参数一致
         Object[] params = invocation.getArguments();
         try {
             onInvokeMethod.invoke(onInvokeInst, params);
@@ -176,10 +184,12 @@ public class FutureFilter implements Filter {
         Class<?>[] rParaTypes = onthrowMethod.getParameterTypes();
         if (rParaTypes[0].isAssignableFrom(exception.getClass())) {
             try {
+                //因为onthrow方法的参数第一个值必须为异常信息，所以这里需要构造参数列表
                 Object[] args = invocation.getArguments();
                 Object[] params;
 
                 if (rParaTypes.length > 1) {
+                    //原调用方法只有一个参数而且这个参数是数组（单独拎出来计算的好处是这样可以少复制一个数组）
                     if (rParaTypes.length == 2 && rParaTypes[1].isAssignableFrom(Object[].class)) {
                         params = new Object[2];
                         params[0] = exception;
@@ -190,6 +200,7 @@ public class FutureFilter implements Filter {
                         System.arraycopy(args, 0, params, 1, args.length);
                     }
                 } else {
+                    //原调用方法没有参数
                     params = new Object[]{exception};
                 }
                 onthrowMethod.invoke(onthrowInst, params);
