@@ -255,6 +255,7 @@ public class HeaderExchangeServer implements ExchangeServer {
 
     private void startIdleCheckTask(URL url) {
         if (!server.canHandleIdle()) {
+            // HeaderExchangeServer.this.getChannels()这里没有内部类，可以直接使用this.getChannels()
             AbstractTimerTask.ChannelProvider cp = () -> unmodifiableCollection(HeaderExchangeServer.this.getChannels());
             int idleTimeout = UrlUtils.getIdleTimeout(url);
             long idleTimeoutTick = calculateLeastDuration(idleTimeout);
@@ -262,6 +263,7 @@ public class HeaderExchangeServer implements ExchangeServer {
             this.closeTimerTask = closeTimerTask;
 
             // init task and start timer.
+            // 心跳检测
             IDLE_CHECK_TIMER.newTimeout(closeTimerTask, idleTimeoutTick, TimeUnit.MILLISECONDS);
         }
     }

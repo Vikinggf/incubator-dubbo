@@ -110,11 +110,13 @@ public class Exchangers {
     }
 
     public static Exchanger getExchanger(URL url) {
+        // type = header
         String type = url.getParameter(Constants.EXCHANGER_KEY, Constants.DEFAULT_EXCHANGER);
         return getExchanger(type);
     }
 
     public static Exchanger getExchanger(String type) {
+        // 获取扩展点的主要逻辑，根据类型名字获取
         return ExtensionLoader.getExtensionLoader(Exchanger.class).getExtension(type);
     }
 
